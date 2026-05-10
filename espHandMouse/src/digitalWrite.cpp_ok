@@ -1,0 +1,14 @@
+#include <Arduino.h>
+
+void setup() {
+  Serial.begin(115200);
+  pinMode(10, OUTPUT); // Branche ton buzzer ici
+}
+
+void loop() {
+  Serial.println("Test...");
+  digitalWrite(10, HIGH);
+  delay(200);
+  digitalWrite(10, LOW);
+  delay(2900);
+}
