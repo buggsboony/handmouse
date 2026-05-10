@@ -6,6 +6,6 @@ void setup() {
 
 void loop() {
   
-  Serial.println("FastIMU compile? project");
-  delay(4000);
+  Serial.println("Hello S3 ! (3sec) ARDUINO_USB_MODE");
+  delay(3000);
 }
