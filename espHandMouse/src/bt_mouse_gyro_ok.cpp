@@ -8,10 +8,13 @@
 
 //2026-05-17 13:13:42 - Sensor definition
 BMI160 IMU; 
+#define USE_BLE 1
 
-// On donne un nom à ta souris. C'est ce nom qui apparaîtra sur ton PC sous Manjaro
-BleMouse Mouse("Souris Gyro ESP32", "Hobbyist", 100);
-
+#if USE_BLE == 1
+  typedef BleMouse TypeMouse;
+  // On donne un nom à ta souris. C'est ce nom qui apparaîtra sur ton PC sous Manjaro
+  BleMouse Mouse("Souris Gyro ESP32", "Hobbyist", 100);
+#endif
 
 
 // Structure pour stocker les données
@@ -70,47 +73,15 @@ float smoothX;
 
 int k=0;
 
-
-void loop0() {
-  // On vérifie si l'ESP32 est bien connecté en Bluetooth à l'ordinateur
-  if (Mouse.isConnected()) {
-    
-    // --- ICI : Tu mets ta logique de lecture du gyroscope ---
-    // Exemple fictif : on imagine que tu as récupéré tes axes X et Y
-    int deltaX = -5;  // À remplacer par tes calculs gyro
-    int deltaY = 0;  // À remplacer par tes calculs gyro
-    
-    // On envoie les mouvements au PC en Bluetooth
-    // La syntaxe est STRICTEMENT la même qu'en USB : move(X, Y, wheel)
-    Mouse.move(deltaX, deltaY);
-    
-    Serial.println("Mouvement envoyé en BT !");
-    delay(10); // Petit délai pour ne pas saturer le flux
-    
-  } else {
-    // Si l'ordinateur n'est pas connecté ou s'est déconnecté
-    Serial.println("En attente de connexion Bluetooth avec le PC...");
-    delay(1000); 
-  }
-}//loopzero
-
-
-
-
-
-void loop() 
+void loopMouse(TypeMouse Mouse)
 {
 
-  if (Mouse.isConnected()) 
-  {
-    
   IMU.update();
   IMU.getGyro(&data);
   // 1. On calcule la force brute
   //int dz = 0.1; // Deadzone stable
   float targetX = 0;
   float targetY = 0;
-
 //   //2026-05-10 15:12:18 - Breadboard horizontal, usb port pointent vers la droite
 //   float rawX = -(data.gyroZ);
 //   float rawY = (data.gyroX);
@@ -133,7 +104,6 @@ void loop()
     accumY = 0;
   }
 
-
   if (abs(rawX) > threshold) {
     targetX = rawX * sensitivity;
   } else {
@@ -143,20 +113,16 @@ void loop()
     smoothX = 0;
     accumX = 0;
   }
-
   // 2. LISSAGE ET ACCUMULATION (uniquement si mouvement réel)
   if (targetY != 0) {
     smoothY = (targetY * (1.0 - smoothing)) + (smoothY * smoothing);
     accumY += smoothY;
   }
-
     // 2. LISSAGE ET ACCUMULATION (uniquement si mouvement réel)
   if (targetX != 0) {
     smoothX = (targetX * (1.0 - smoothing)) + (smoothX * smoothing);
     accumX += smoothX;
   }
-
-
   int mY = (int)accumY;
   int mX = (int)accumX;
 
@@ -166,20 +132,39 @@ void loop()
     accumX -= mX; // On garde le reste
     accumY -= mY; // On garde le reste
   }
+}//loopMouse
 
+
+
+void loop() 
+{
+
+  #if USE_BLE == 1
+    if (Mouse.isConnected()) 
+    {
+  #endif
+
+
+    loopMouse(Mouse);
   
+    #if USE_BLE == 1
+      delay(2); //BleMouse config
+    #else
+        // On ralentit un tout petit peu pour laisser le buffer USB respirer sous Manjaro
+      if(k++>=5)
+      {
+        k=0;
+        delay(1); 
+      }
+    #endif
 
-  // // On ralentit un tout petit peu pour laisser le buffer USB respirer sous Manjaro
-  // if(k++>=5)
-  // {
-  //   k=0;
-  //   delay(1); 
-  // }
-   delay(2); //BleMouse config
-}//mouseConnected
-  else {
-    // Si l'ordinateur n'est pas connecté ou s'est déconnecté
-    Serial.println("En attente de connexion Bluetooth avec le PC...");
-    delay(1000); 
-  }
+  #if USE_BLE == 1
+    }//mouseConnected
+    else {
+      // Si l'ordinateur n'est pas connecté ou s'est déconnecté
+      Serial.println("En attente de connexion Bluetooth avec le PC...");
+      delay(1000); 
+    }
+  #endif
 }//loop
+
