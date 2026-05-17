@@ -1,12 +1,18 @@
 #include <Arduino.h>
 #include <Wire.h>
 #include <FastIMU.h> // La lib principale
-#include <USB.h>
-#include <USBHIDMouse.h>
 
-// On définit le capteur
+//#include <USBHIDMouse.h>
+#define USE_NIMBLE // <--- TRÈS IMPORTANT : À mettre AVANT l'include !
+#include <BleMouse.h>
+
+//2026-05-17 13:13:42 - Sensor definition
 BMI160 IMU; 
-USBHIDMouse Mouse;
+
+// On donne un nom à ta souris. C'est ce nom qui apparaîtra sur ton PC sous Manjaro
+BleMouse Mouse("Souris Gyro ESP32", "Hobbyist", 100);
+
+
 
 // Structure pour stocker les données
 calData calib = { 0 }; 
@@ -33,12 +39,21 @@ void setup() {
   //IMU.setGyroRange(2000); 
   IMU.setGyroRange(980); 
 
+  //2026-05-17 13:14:38 - USB Hid 
+  // Mouse.begin();
+  // USB.begin();
+
+  //2026-05-17 13:14:44 - BT hid
+  Serial.println("Démarrage du Bluetooth...");  
+  // On lance le service Bluetooth de l'ESP32
   Mouse.begin();
-  USB.begin();
+
   
   Serial.println("FastIMU prête ! Calibrage automatique...");
   // Optionnel : tu peux ajouter une routine de calibrage ici
-}
+}//setup
+
+
 
 
 // --- VARIABLES GLOBALES ---
@@ -55,15 +70,44 @@ float smoothX;
 
 int k=0;
 
-void loop() {
+
+void loop0() {
+  // On vérifie si l'ESP32 est bien connecté en Bluetooth à l'ordinateur
+  if (Mouse.isConnected()) {
+    
+    // --- ICI : Tu mets ta logique de lecture du gyroscope ---
+    // Exemple fictif : on imagine que tu as récupéré tes axes X et Y
+    int deltaX = -5;  // À remplacer par tes calculs gyro
+    int deltaY = 0;  // À remplacer par tes calculs gyro
+    
+    // On envoie les mouvements au PC en Bluetooth
+    // La syntaxe est STRICTEMENT la même qu'en USB : move(X, Y, wheel)
+    Mouse.move(deltaX, deltaY);
+    
+    Serial.println("Mouvement envoyé en BT !");
+    delay(10); // Petit délai pour ne pas saturer le flux
+    
+  } else {
+    // Si l'ordinateur n'est pas connecté ou s'est déconnecté
+    Serial.println("En attente de connexion Bluetooth avec le PC...");
+    delay(1000); 
+  }
+}//loopzero
+
+
+
+
+
+void loop() 
+{
+
+  if (Mouse.isConnected()) 
+  {
+    
   IMU.update();
   IMU.getGyro(&data);
-
   // 1. On calcule la force brute
-
   //int dz = 0.1; // Deadzone stable
-
-
   float targetX = 0;
   float targetY = 0;
 
@@ -74,18 +118,6 @@ void loop() {
 //2026-05-10 15:12:18 - Breadboard horizontal, usb port pointent vers la droite
   float rawX = -(data.gyroX);
   float rawY = (data.gyroZ);
-
-
-//   //2026-05-10 12:53:45 - Breadboard horizontal, usb port pointent vers la droite
-//   if (abs(data.gyroZ) > dz) rawX = (-data.gyroZ) * sensitivity;
-//   if (abs(data.gyroY) > dz) rawY = (-data.gyroY) * sensitivity;
-
-//   //2026-05-10 12:53:45 - Droitier, Breadboard Vertical, usb port pointent vers le haut
-//   if (abs(data.gyroX) > dz) rawX = -(data.gyroX) * sensitivity;
-//   if (abs(data.gyroZ) > dz) rawY = (data.gyroZ) * sensitivity;
-
-
-
 
   // 1. DEADZONE PLUS LARGE
   // Le BMI160 a souvent un bruit de fond qui monte à 60-80
@@ -136,25 +168,18 @@ void loop() {
   }
 
   
-//   int mY = (int)accumY;
 
-//   if (mY != 0) {
-//     Mouse.move(0, mY);
-//     accumY -= mY; // On garde le reste
-//   }
-
-
-//   int mX = (int)accumX;
-
-//   if (mX != 0) {
-//     Mouse.move(mX,0);
-//     accumX -= mX; // On garde le reste
-//   }
-
-  // On ralentit un tout petit peu pour laisser le buffer USB respirer sous Manjaro
-  if(k++>=10)
-  {
-    k=0;
-    delay(1); 
+  // // On ralentit un tout petit peu pour laisser le buffer USB respirer sous Manjaro
+  // if(k++>=5)
+  // {
+  //   k=0;
+  //   delay(1); 
+  // }
+   delay(2); //BleMouse config
+}//mouseConnected
+  else {
+    // Si l'ordinateur n'est pas connecté ou s'est déconnecté
+    Serial.println("En attente de connexion Bluetooth avec le PC...");
+    delay(1000); 
   }
-}
+}//loop
